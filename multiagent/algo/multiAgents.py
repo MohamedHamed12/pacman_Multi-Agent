@@ -192,8 +192,50 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         Returns the minimax action using self.depth and self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
+        return self.maxValue(gameState, 0, 0, float('-inf'), float('inf'))[1]
         util.raiseNotDefined()
+    def is_terminal_state(self, gameState, depth, agent_idx):
+        """
+        Function to determine if we have reached a leaf node in the state search tree
+        """
 
+        if gameState.isWin():
+            return gameState.isWin()
+        elif gameState.isLose():
+            return gameState.isLose()
+        
+        # elif gameState.getLegalActions(agent_idx) is 0:
+        #     return gameState.getLegalActions(agent_idx)
+        elif depth >= self.depth * gameState.getNumAgents():
+            return self.depth
+      
+    def value(self, gameState: GameState, agentIndex: int, depth: int, alpha: float, beta: float):
+        if self.is_terminal_state(gameState, depth, agentIndex):
+           
+
+            return self.evaluationFunction(gameState)
+        if agentIndex == 0:
+            return self.maxValue(gameState, agentIndex, depth, alpha, beta)[0]
+        else:
+            return self.minValue(gameState, agentIndex, depth, alpha, beta)[0]
+
+    def maxValue(self, gameState: GameState, agentIndex: int, depth: int, alpha: float, beta: float):
+        v = (float('-inf'), None)
+        for action in gameState.getLegalActions(agentIndex):
+            v = max(v, (self.value(gameState.generateSuccessor(agentIndex, action), (agentIndex + 1) % gameState.getNumAgents(), depth+1, alpha, beta), action), key=lambda x: x[0])
+            if v[0] > beta:
+                return v
+            alpha = max(alpha, v[0])
+        return v
+    def minValue(self, gameState: GameState, agentIndex: int, depth: int, alpha: float, beta: float):
+        v =( float('inf'), None)
+        for action in gameState.getLegalActions(agentIndex):
+            v = min(v, (self.value(gameState.generateSuccessor(agentIndex, action), (agentIndex + 1) % gameState.getNumAgents(), depth + 1, alpha, beta), action), key=lambda x: x[0])
+            if v[0] < alpha:
+                return v
+            beta = min(beta, v[0])
+        return v
+    
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
       Your expectimax agent (question 4)
@@ -207,8 +249,54 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
+        return self.maxValue(gameState, 0, 0)[1]
         util.raiseNotDefined()
+    def is_terminal_state(self, gameState, depth, agent_idx):
+        """
+        Function to determine if we have reached a leaf node in the state search tree
+        """
 
+        if gameState.isWin():
+            return gameState.isWin()
+        elif gameState.isLose():
+            return gameState.isLose()
+        
+        # elif gameState.getLegalActions(agent_idx) is 0:
+        #     return gameState.getLegalActions(agent_idx)
+        elif depth >= self.depth * gameState.getNumAgents():
+            return self.depth
+
+    def maxValue(self, gameState: GameState, agentIndex: int, depth: int):
+        v = (float('-inf'), None)
+        for action in gameState.getLegalActions(agentIndex):
+            v = max(v, (self.value(gameState.generateSuccessor(agentIndex, action), (agentIndex + 1) % gameState.getNumAgents(), depth+1), action), key=lambda x: x[0])
+        return v
+    def expected_value (self, gameState: GameState, agentIndex: int, depth: int):
+        v = 0
+        for action in gameState.getLegalActions(agentIndex):
+            v += self.value(gameState.generateSuccessor(agentIndex, action), (agentIndex + 1) % gameState.getNumAgents(), depth+1) / len(gameState.getLegalActions(agentIndex))
+        return [v]
+
+    def value(self, gameState: GameState, agentIndex: int, depth: int, alpha: float, beta: float):
+        if self.is_terminal_state(gameState, depth, agentIndex):
+           
+
+            return self.evaluationFunction(gameState)
+        if agentIndex == 0:
+            return self.maxValue(gameState, agentIndex, depth, alpha, beta)[0]
+        else:
+            return self.expected_value(gameState, agentIndex, depth, alpha, beta)[0]
+
+      
+    def value(self, gameState: GameState, agentIndex: int, depth: int):
+        if self.is_terminal_state(gameState, depth, agentIndex):
+           
+
+            return self.evaluationFunction(gameState)
+        if agentIndex == 0:
+            return self.maxValue(gameState, agentIndex, depth)[0]
+        else:
+            return self.expected_value(gameState, agentIndex, depth)[0]
 def betterEvaluationFunction(currentGameState: GameState):
     """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
@@ -218,6 +306,9 @@ def betterEvaluationFunction(currentGameState: GameState):
     """
     "*** YOUR CODE HERE ***"
     util.raiseNotDefined()
+
+
+
 
 # Abbreviation
 better = betterEvaluationFunction
