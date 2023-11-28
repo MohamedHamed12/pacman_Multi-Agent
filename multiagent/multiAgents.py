@@ -8,6 +8,8 @@ import random, util
 
 from game import Agent
 from pacman import GameState
+from util import manhattanDistance
+
 
 class ReflexAgent(Agent):
     """
@@ -58,6 +60,7 @@ class ReflexAgent(Agent):
         to create a masterful evaluation function.
         """
         # Useful information you can extract from a GameState (pacman.py)
+        
         successorGameState = currentGameState.generatePacmanSuccessor(action)
         newPos = successorGameState.getPacmanPosition()
         newFood = successorGameState.getFood()
@@ -65,7 +68,22 @@ class ReflexAgent(Agent):
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
         "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+
+
+
+        foodDistances = [manhattanDistance(successorGameState.getPacmanPosition(), food) for food in currentGameState.getFood().asList()]
+        minFoodDistance = min(foodDistances)
+
+        ghostPositions = currentGameState.getGhostPositions()
+        if any(manhattanDistance(successorGameState.getPacmanPosition(), ghost) < 2 for ghost in ghostPositions):
+            return -float('inf')  # Assign a low score to actions that lead to ghosts
+
+
+        totalScore =  -minFoodDistance
+
+        return totalScore
+        # return successorGameState.getScore()
+
 
 def scoreEvaluationFunction(currentGameState: GameState):
     """
@@ -75,7 +93,8 @@ def scoreEvaluationFunction(currentGameState: GameState):
     This evaluation function is meant for use with adversarial search agents
     (not reflex agents).
     """
-    return currentGameState.getScore()
+    return betterEvaluationFunction(currentGameState)
+
 
 class MultiAgentSearchAgent(Agent):
     """
@@ -92,10 +111,11 @@ class MultiAgentSearchAgent(Agent):
     is another abstract class.
     """
 
-    def __init__(self, evalFn = 'scoreEvaluationFunction', depth = '2'):
+    def __init__(self, evalFn = 'betterEvaluationFunction', depth = '2'):
         self.index = 0 # Pacman is always agent index 0
         self.evaluationFunction = util.lookup(evalFn, globals())
         self.depth = int(depth)
+
 
 class MinimaxAgent(MultiAgentSearchAgent):
     """
@@ -125,8 +145,48 @@ class MinimaxAgent(MultiAgentSearchAgent):
         gameState.isLose():
         Returns whether or not the game state is a losing state
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+
+        # util.raiseNotDefined()
+        # return self.value(gameState, 0, 0)
+        return self.maxValue(gameState, 0, 0)[1]
+
+    def is_terminal_state(self, gameState, depth, agent_idx):
+        """
+        Function to determine if we have reached a leaf node in the state search tree
+        """
+        if gameState.isWin():
+            return gameState.isWin()
+        elif gameState.isLose():
+            return gameState.isLose()
+        elif depth >= self.depth * gameState.getNumAgents():
+            return self.depth
+
+    def value(self, gameState: GameState, agentIndex: int, depth: int):
+        if self.is_terminal_state(gameState, depth, agentIndex):
+            return self.evaluationFunction(gameState)
+        if agentIndex == 0:
+            return self.maxValue(gameState, agentIndex, depth)[0]
+        else:
+            return self.minValue(gameState, agentIndex, depth)[0]
+
+    def maxValue(self, gameState: GameState, agentIndex: int, depth: int):
+        v = (float('-inf'), None)
+        for action in gameState.getLegalActions(agentIndex):
+            successor = gameState.generateSuccessor(agentIndex, action)
+            nextAgent = (agentIndex + 1) % gameState.getNumAgents()
+            val = self.value(successor, nextAgent, depth + 1)
+            v = max(v, (val, action), key=lambda x: x[0])
+        return v
+
+    def minValue(self, gameState: GameState, agentIndex: int, depth: int):
+        v =( float('inf'), None)
+        for action in gameState.getLegalActions(agentIndex):
+            successor = gameState.generateSuccessor(agentIndex, action)
+            nextAgent = (agentIndex + 1) % gameState.getNumAgents()
+            val = self.value(successor, nextAgent, depth + 1)
+            v = min(v, (val, action), key=lambda x: x[0])
+        return v
+
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -138,7 +198,50 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         Returns the minimax action using self.depth and self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return self.maxValue(gameState, 0, 0, float('-inf'), float('inf'))[1]
+    
+    def is_terminal_state(self, gameState, depth, agent_idx):
+        """
+        Function to determine if we have reached a leaf node in the state search tree
+        """
+
+        if gameState.isWin():
+            return gameState.isWin()
+        elif gameState.isLose():
+            return gameState.isLose()
+        
+        # elif gameState.getLegalActions(agent_idx) is 0:
+        #     return gameState.getLegalActions(agent_idx)
+        elif depth >= self.depth * gameState.getNumAgents():
+            return self.depth
+      
+    def value(self, gameState: GameState, agentIndex: int, depth: int, alpha: float, beta: float):
+        if self.is_terminal_state(gameState, depth, agentIndex):
+            return self.evaluationFunction(gameState)
+        if agentIndex == 0:
+            return self.maxValue(gameState, agentIndex, depth, alpha, beta)[0]
+        else:
+            return self.minValue(gameState, agentIndex, depth, alpha, beta)[0]
+
+    
+    def maxValue(self, gameState: GameState, agentIndex: int, depth: int, alpha: float, beta: float):
+        v = (float('-inf'), None)
+        for action in gameState.getLegalActions(agentIndex):
+            v = max(v, (self.value(gameState.generateSuccessor(agentIndex, action), (agentIndex + 1) % gameState.getNumAgents(), depth+1, alpha, beta), action), key=lambda x: x[0])
+            if v[0] > beta:
+                return v
+            alpha = max(alpha, v[0])
+        return v
+    
+    def minValue(self, gameState: GameState, agentIndex: int, depth: int, alpha: float, beta: float):
+        v =( float('inf'), None)
+        for action in gameState.getLegalActions(agentIndex):
+            v = min(v, (self.value(gameState.generateSuccessor(agentIndex, action), (agentIndex + 1) % gameState.getNumAgents(), depth + 1, alpha, beta), action), key=lambda x: x[0])
+            if v[0] < alpha:
+                return v
+            beta = min(beta, v[0])
+        return v
+
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
@@ -153,20 +256,104 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
+        return self.maxValue(gameState, 0, 0)[1]
         util.raiseNotDefined()
+    def is_terminal_state(self, gameState, depth, agent_idx):
+        """
+        Function to determine if we have reached a leaf node in the state search tree
+        """
+        if gameState.isWin():
+            return gameState.isWin()
+        elif gameState.isLose():
+            return gameState.isLose()
+        
+        # elif gameState.getLegalActions(agent_idx) is 0:
+        #     return gameState.getLegalActions(agent_idx)
+        elif depth >= self.depth * gameState.getNumAgents():
+            return self.depth
+
+    def maxValue(self, gameState: GameState, agentIndex: int, depth: int):
+        v = (float('-inf'), None)
+        for action in gameState.getLegalActions(agentIndex):
+            v = max(v, (self.value(gameState.generateSuccessor(agentIndex, action), (agentIndex + 1) % gameState.getNumAgents(), depth+1), action), key=lambda x: x[0])
+        return v
+
+    def expected_value (self, gameState: GameState, agentIndex: int, depth: int):
+        v = 0
+        for action in gameState.getLegalActions(agentIndex):
+            v += self.value(gameState.generateSuccessor(agentIndex, action), (agentIndex + 1) % gameState.getNumAgents(), depth+1) / len(gameState.getLegalActions(agentIndex))
+        return [v]
+
+    def value(self, gameState: GameState, agentIndex: int, depth: int, alpha: float, beta: float):
+        if self.is_terminal_state(gameState, depth, agentIndex):
+           
+
+            return self.evaluationFunction(gameState)
+        if agentIndex == 0:
+            return self.maxValue(gameState, agentIndex, depth, alpha, beta)[0]
+        else:
+            return self.expected_value(gameState, agentIndex, depth, alpha, beta)[0]
+
+      
+    def value(self, gameState: GameState, agentIndex: int, depth: int):
+        if self.is_terminal_state(gameState, depth, agentIndex):
+           
+
+            return self.evaluationFunction(gameState)
+        if agentIndex == 0:
+            return self.maxValue(gameState, agentIndex, depth)[0]
+        else:
+            return self.expected_value(gameState, agentIndex, depth)[0]
+
 
 def betterEvaluationFunction(currentGameState: GameState):
     """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
     evaluation function (question 5).
 
-    DESCRIPTION: <write something here so we know what you did>
+    DESCRIPTION: the key features of the evaluation is that we need to
+    eat as many food dots as possible, as well as eating capsules, the pacman
+    also need to stay away from ghosts. Each of these features have weights, they
+    don't contribute the same way, as eating more food has more priority than stay
+    very far from ghosts, we can be near and still eating food.
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+
+    # Useful information you can extract from a GameState (pacman.py)
+    pacmanPos = currentGameState.getPacmanPosition()
+    foodPos = currentGameState.getFood().asList()
+    ghostsPos = currentGameState.getGhostPositions()
+
+    nearestGhost = float('inf')
+    for x in ghostsPos:
+        nearestGhost = min(nearestGhost, manhattanDistance(pacmanPos, x))
+
+    nearestFood = float('inf')
+    for x in foodPos:
+        nearestFood = min(nearestFood, manhattanDistance(pacmanPos, x))
+
+    if (nearestGhost < 2):
+        # not a good state, we need to avoid near ghosts
+        return -1e18
+
+    if currentGameState.isLose():
+        return -1e18
+
+    if currentGameState.isWin():
+        return 1e18
+
+    foodLeft = currentGameState.getNumFood()
+    capsLeft = len(currentGameState.getCapsules())
+
+    foodLeftMultiplier = 100000
+    capsLeftMultiplier = 1000
+    foodDistMultiplier = 10
+    score = 1.0/(foodLeft + 1) * foodLeftMultiplier - nearestGhost * 10 + \
+           1.0/(nearestFood + 1) * foodDistMultiplier + \
+           1.0/(capsLeft + 1) * capsLeftMultiplier
+    # print(f"{foodLeft=}")
+    # print(f"{score=}")
+    return score
+
 
 # Abbreviation
 better = betterEvaluationFunction
-
-
-from algo.multiAgents import *

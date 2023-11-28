@@ -1,0 +1,6 @@
+function-naming-style=camelCase
+method-naming-style=camelCase
+attr-naming-style=camelCase
+argument-naming-style=camelCase
+variable-naming-style=camelCase
+inlinevar-naming-style=camelCase
